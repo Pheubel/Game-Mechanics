@@ -4,6 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+[RequireComponent(typeof(RayFieldColider))]
 public class PlayerController : MonoBehaviour
 {
 
@@ -21,24 +22,11 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float _maxVelocityX;
     [SerializeField] private float _maxVelocityY;
 
-    [SerializeField] private LayerMask WorldMask;
+    private RayFieldColider _coliderController;
 
-    [SerializeField] private Racycast2DField _rayFieldUp;
-    [SerializeField] private Racycast2DField _rayFieldDown;
-    [SerializeField] private Racycast2DField _rayFieldLeft;
-    [SerializeField] private Racycast2DField _rayFieldRight;
-
-    private void OnDrawGizmosSelected()
+    void Awake()
     {
-        if (_velocityX > 0)
-            _rayFieldRight.DrawGizmo(transform.position, _velocityX * Time.deltaTime);
-        else if (_velocityX < 0)
-            _rayFieldLeft.DrawGizmo(transform.position, Mathf.Abs(_velocityX) * Time.deltaTime);
-
-        if (_velocityY > 0)
-            _rayFieldUp.DrawGizmo(transform.position, _velocityY * Time.deltaTime);
-        else if (_velocityY < 0)
-            _rayFieldDown.DrawGizmo(transform.position, Mathf.Abs(_velocityY) * Time.deltaTime);
+        _coliderController = GetComponent<RayFieldColider>();
     }
 
     // Update is called once per frame
@@ -61,7 +49,7 @@ public class PlayerController : MonoBehaviour
                 break;
 
             case MobilityStates.InAirSlowDescent:
-                _velocityY -= Gravity / 2;
+                _velocityY -= (Gravity / 2) * Time.deltaTime;
 
                 if (Input.GetKeyUp(KeyCode.Space))
                 {
@@ -69,7 +57,7 @@ public class PlayerController : MonoBehaviour
                 }
                 break;
             case MobilityStates.InAir:
-                _velocityY -= Gravity;
+                _velocityY -= Gravity * Time.deltaTime;
                 break;
         }
 
@@ -78,11 +66,12 @@ public class PlayerController : MonoBehaviour
 
         float correctX = 0, correctY = 0;
 
+
         if (_velocityX > 0)
         {
-            RaycastHit2D[] rightHit = _rayFieldRight.Cast(currentPosition, deltaVelocity.x, WorldMask);
+            RaycastHit2D[] rightHit = _coliderController.CastRight(deltaVelocity.x);
 
-            if (rightHit.HitTag(Helper.WorldLayOut, out correctX))
+            if (rightHit.HitTag(Helper.Tags.WorldLayOut, out correctX))
             {
                 _velocityX = 0;
             }
@@ -95,9 +84,9 @@ public class PlayerController : MonoBehaviour
 
         else if (_velocityX < 0)
         {
-            RaycastHit2D[] leftHit = _rayFieldLeft.Cast(currentPosition, Mathf.Abs(deltaVelocity.x), WorldMask);
+            RaycastHit2D[] leftHit = _coliderController.CastLeft(Mathf.Abs(deltaVelocity.x));
 
-            if (leftHit.HitTag(Helper.WorldLayOut, out correctX))
+            if (leftHit.HitTag(Helper.Tags.WorldLayOut, out correctX))
             {
                 _velocityX = 0;
                 correctX *= -1;
@@ -111,9 +100,9 @@ public class PlayerController : MonoBehaviour
 
         if (_velocityY > 0)
         {
-            RaycastHit2D[] upHit = _rayFieldUp.Cast(currentPosition, deltaVelocity.y, WorldMask);
+            RaycastHit2D[] upHit = _coliderController.CastUp(deltaVelocity.y);
 
-            if (upHit.HitTag(Helper.WorldLayOut, out correctY))
+            if (upHit.HitTag(Helper.Tags.WorldLayOut, out correctY))
             {
                 _mobilityState = MobilityStates.InAir;
                 _velocityY = 0;
@@ -125,20 +114,37 @@ public class PlayerController : MonoBehaviour
             }
         }
 
-        RaycastHit2D[] downHit = _rayFieldDown.Cast(currentPosition, Mathf.Abs(deltaVelocity.y), WorldMask);
-
-        if (_velocityY < 0 && downHit.HitTag(Helper.WorldLayOut, out correctY))
+        else if (_velocityY == 0)
         {
-            _mobilityState = MobilityStates.OnGround;
-            _velocityY = 0;
-            correctY *= -1;
+            RaycastHit2D[] downHit = _coliderController.CastDown(Mathf.Abs(deltaVelocity.y));
+
+            TopContactHandlerBase contact;
+
+            if (!downHit.HitTag(Helper.Tags.WorldLayOut))
+            {
+                _mobilityState = MobilityStates.InAir;
+            }
+
+            else if ((contact = downHit.HitObject<TopContactHandlerBase>()) == null)
+            {
+                contact.ContactUp(this);
+            }
         }
 
         else
         {
-            if (_velocityY == 0)
-                _mobilityState = MobilityStates.InAir;
-            correctY = deltaVelocity.y;
+            RaycastHit2D[] downHit = _coliderController.CastDown(Mathf.Abs(deltaVelocity.y));
+
+            if (_velocityY < 0 && downHit.HitTag(Helper.Tags.WorldLayOut, out correctY))
+            {
+                _mobilityState = MobilityStates.OnGround;
+                _velocityY = 0;
+                correctY *= -1;
+            }
+            else
+            {
+                correctY = deltaVelocity.y;
+            }
         }
 
 

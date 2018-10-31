@@ -13,6 +13,47 @@ public class Racycast2DField
     [SerializeField] private Directions _direction;
     [SerializeField] private Densities _density = Densities.Low;
 
+    public void DrawGizmo(Vector2 origin)
+    {
+        Gizmos.color = Color.yellow;
+
+        switch (_direction)
+        {
+            case Directions.Up:
+                // draw base line
+                Gizmos.DrawLine(
+                    new Vector3(origin.x + _offset.x - _width, origin.y + _offset.y),
+                    new Vector3(origin.x + _offset.x + _width, origin.y + _offset.y));
+                
+                break;
+
+            case Directions.Down:
+                // draw base line
+                Gizmos.DrawLine(
+                    new Vector3(origin.x + _offset.x - _width, origin.y + _offset.y),
+                    new Vector3(origin.x + _offset.x + _width, origin.y + _offset.y));
+                
+                break;
+
+            case Directions.Left:
+                // draw base line
+                Gizmos.DrawLine(
+                    new Vector3(origin.x + _offset.x, origin.y + _offset.y - _width),
+                    new Vector3(origin.x + _offset.x, origin.y + _offset.y + _width));
+                
+                break;
+
+            case Directions.Right:
+                // draw base line
+                Gizmos.DrawLine(
+                    new Vector3(origin.x + _offset.x, origin.y + _offset.y - _width),
+                    new Vector3(origin.x + _offset.x, origin.y + _offset.y + _width));
+                
+                break;
+
+            default: break;
+        }
+    }
 
     public void DrawGizmo(Vector2 origin, float distance)
     {
@@ -167,8 +208,6 @@ public class Racycast2DField
             default:
                 throw new System.Exception("Raycast field has no valid direction.");
         }
-
-        Debug.Log(hits);
 
         return hits;
     }
@@ -449,15 +488,17 @@ public class Racycast2DField
 
     public enum Densities
     {
+        Disabled = 0,
         Low = 3,
-
     }
 }
 
 public static class RaycastHit2dArrayExtention
 {
-    public static RaycastHit2D ReturnClosestHit(this RaycastHit2D[] hits)
+    public static RaycastHit2D? ReturnClosestHit(this RaycastHit2D[] hits)
     {
+        if (hits.Length == 0) return null;
+
         RaycastHit2D closestHit = hits[0];
 
         for (int i = 1; i < hits.Length; i++)
@@ -495,11 +536,23 @@ public static class RaycastHit2dArrayExtention
             {
                 correction = Mathf.Max(correction, hits[i].distance);
                 hasHit = true;
-
-                Debug.Log($"Hit {tagName}");
             }
         }
 
         return hasHit;
+    }
+
+    public static T HitObject<T>(this RaycastHit2D[] hits) where T : Object
+    {
+        for (int i = 0; i < hits.Length; i++)
+        {
+            T component = hits[i].collider?.GetComponent<T>();
+            if (component == null)
+                continue;
+
+            return component;
+        }
+
+        return null;
     }
 }
